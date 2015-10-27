@@ -18,27 +18,38 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
         nombre = mensaje.split(" ")[1]
         nombre = nombre.split(":")[1]
         return nombre
-
+    def get_expires(self, mensaje):
+        time = mensaje.split("Expires: ")[1]
+        time = time.split("\r")[0]
+        return(int(time))
 
     def handle(self):
         # Escribe dirección y puerto del cliente (de tupla client_address)
         dir_client = self.client_address[0]
         port_client = self.client_address[1]
-
         line = self.rfile.read()
-
-        #si es REGISTER debemos guardar el cliente
         mensaje_recibido = line.decode('utf-8')
         tipo_mensaje = mensaje_recibido.split(' ')[0]
-        if tipo_mensaje == "REGISTER":
-            print("El cliente nos manda " + tipo_mensaje)
-            #guardo al cliente
-            nombre = self.get_nombre(mensaje_recibido)
-            self.dicc_clientes[nombre] = dir_client
-            #traza
-            print(self.dicc_clientes)
-            self.wfile.write(b"SIP/2.0 200 OK\r\n\r\n")
 
+        """----------------------------------------
+        -----REGISTER debemos guardar el cliente
+        ----------------------------------------"""
+        if tipo_mensaje == "REGISTER":
+            nombre = self.get_nombre(mensaje_recibido)
+            t_expires = self.get_expires(mensaje_recibido)
+            #guardo al usuario nada mas llegar
+            self.dicc_clientes[nombre] = dir_client
+
+            #compruebo si debo borrar o no
+            if t_expires == 0:
+                print("usuario eliminado de mis clientes")
+                del self.dicc_clientes[nombre];
+            else:
+                print("tiempo no expirado, no borro al usuario del diccionario")
+                #si no debo eliminar al usuario debo guardarlo
+
+            #respondo al cliente
+            self.wfile.write(b"SIP/2.0 200 OK\r\n\r\n")
 
         while 1:
             # Leyendo línea a línea lo que nos envía el cliente
