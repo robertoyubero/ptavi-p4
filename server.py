@@ -6,6 +6,8 @@ Clase (y programa principal) para un servidor de eco en UDP simple
 
 import socketserver
 import sys
+import time
+import json
 
 
 class SIPRegisterHandler(socketserver.DatagramRequestHandler):
@@ -13,6 +15,25 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
     Echo server class
     """
     dicc_clientes = {}
+
+    def registered2json(self,nombre, dir_maquina, t_exp):
+        #devolver en fichero json nombre+direccion+t_expiracion
+        contenido = [nombre,{"adress":dir_maquina,"expires": t_exp}]
+        fichero = open('registered.json', 'a')
+        #guardo el fichero
+        json.dump(contenido, fichero)
+        fichero.close()
+        #imprimo el fichero
+        fg = open('registered.json', 'r')
+        print(json.load(fg))
+
+    def get_time_expiration(self, t_expiracion):
+        #le sumo una hora a la hora actual
+        hora_expiracion = time.time() + 3600
+        #le sumo el t_expiracion a la hora
+        hora_expiracion += t_expiracion
+        hora_expiracion = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(hora_expiracion))
+        return hora_expiracion
 
     def get_nombre(self, mensaje):
         nombre = mensaje.split(" ")[1]
@@ -25,28 +46,34 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
 
     def handle(self):
         # Escribe dirección y puerto del cliente (de tupla client_address)
-        dir_client = self.client_address[0]
-        port_client = self.client_address[1]
+        dir_cliente = self.client_address[0]
+        port_cliente = self.client_address[1]
+        local_host = str(dir_cliente) + " " + str(port_cliente)
         line = self.rfile.read()
         mensaje_recibido = line.decode('utf-8')
         tipo_mensaje = mensaje_recibido.split(' ')[0]
 
-        """----------------------------------------
-        -----REGISTER debemos guardar el cliente
-        ----------------------------------------"""
+        """-----------
+        -----REGISTER
+        ------------"""
         if tipo_mensaje == "REGISTER":
             nombre = self.get_nombre(mensaje_recibido)
             t_expires = self.get_expires(mensaje_recibido)
-            #guardo al usuario nada mas llegar
-            self.dicc_clientes[nombre] = dir_client
+            hora_expiracion = self.get_time_expiration(t_expires)
+            #imprimimos fichero con register2json
+            self.registered2json(nombre, local_host, hora_expiracion)
 
             #compruebo si debo borrar o no
             if t_expires == 0:
-                print("usuario eliminado de mis clientes")
-                del self.dicc_clientes[nombre];
+                try:
+                    del self.dicc_clientes[nombre];
+                    print("usuario eliminado de mis clientes")
+
+                except:
+                    print("no tengo guardado el usuario, no hago nada")
             else:
-                print("tiempo no expirado, no borro al usuario del diccionario")
-                #si no debo eliminar al usuario debo guardarlo
+                #guardo al usuario
+                self.dicc_clientes[nombre] = dir_cliente
 
             #respondo al cliente
             self.wfile.write(b"SIP/2.0 200 OK\r\n\r\n")
