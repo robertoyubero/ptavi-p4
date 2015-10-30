@@ -16,16 +16,34 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
     """
     dicc_clientes = {}
 
+    def json2registered(self):
+        #1)comprobar si existe el fichero registered.json
+        #1.1)si hay problema al leer suponemos que el fichero json no existe
+        #2)si el fichero existe copio su contenido en un diccionario de usuarios
+
+        pass
+
+
     def registered2json(self,nombre, dir_maquina, t_exp):
         #devolver en fichero json nombre+direccion+t_expiracion
-        contenido = [nombre,{"adress":dir_maquina,"expires": t_exp}]
+        dicc = {}
+        dicc['adress'] = dir_maquina
+        dicc['expires'] = t_exp
+        contenido = [nombre, dicc]
+
+        #guardo informacion del cliente
         fichero = open('registered.json', 'a')
         #guardo el fichero
         json.dump(contenido, fichero)
         fichero.close()
-        #imprimo el fichero
-        fg = open('registered.json', 'r')
-        print(json.load(fg))
+        """---------------------------------"""
+        #imprimo informacion del cliente desde el fichero .json
+        fichero = open('registered.json', 'r')
+        #copio el contenido del fichero json
+        contenido = fichero.readlines()
+        #imrpimo del fichero .json el ultimo cliente
+        print(contenido[0][-75:])
+
 
     def get_time_expiration(self, t_expiracion):
         #le sumo una hora a la hora actual
@@ -67,7 +85,7 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
             if t_expires == 0:
                 try:
                     del self.dicc_clientes[nombre];
-                    print("usuario eliminado de mis clientes")
+                    print("usuario eliminado de mis diccionario de clientes")
 
                 except:
                     print("no tengo guardado el usuario, no hago nada")
