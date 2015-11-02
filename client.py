@@ -7,10 +7,11 @@ Programa cliente que abre un socket a un servidor
 import socket
 import sys
 
+
 def to_register(my_direction, time_expiration):
     salida = "REGISTER "
-    salida = salida + "sip:"+ my_direction + " SIP/2.0\r\n"
-    salida = salida + "Expires: " + time_expiration +  "\r\n\r\n"
+    salida = salida + "sip:" + my_direction + " SIP/2.0\r\n"
+    salida = salida + "Expires: " + time_expiration + "\r\n\r\n"
     print("Enviando: " + "REGISTER + expires")
     return salida
 
@@ -22,12 +23,8 @@ try:
     tipo_mensaje = sys.argv[3]
     my_dir = sys.argv[4]
     t_expires = sys.argv[5]
-
-    """ Contenido que vamos a enviar
-    LINE = sys.argv[3:]
-    frase = ' '.join(LINE)
-    """
-
+    if int(t_expires) < 0:
+        print("Solo tiempos de expiracion => 0. DEBO LANZAR EXCEPCION!!!")
 
     # Creamos el socket, lo configuramos y lo atamos a un servidor/puerto
     my_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
