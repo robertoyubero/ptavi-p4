@@ -14,7 +14,7 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
     """
     Echo server class
     """
-    dicc_clientes = {}
+    dicc_json = {}
 
     def json2registered(self):
         """
@@ -22,35 +22,41 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
         """
         try:
             fichero = open('registered.json')
-            print("True >> el fichero existe")
-            content = json.load(fichero)
-            print(len(content))
-            print("--------------------------")
-        except FileNotFoundError:
-            print("False >> el fichero no existe")
+            contenido = json.load(fichero)
+            a = int(len(contenido)/2)
 
-    def registered2json(self,nombre, dir_maquina, t_exp):
+            for i in range(0, a):
+                for x in contenido.keys():
+                    #guardo cliente mas contenido
+                    self.dicc_json[x] = contenido[x]
+        except FileNotFoundError:
+            pass
+
+    def registered2json(self, usuario):
         """
         Guardo mis clientes en un fichero json
         """
-        dicc = {}
-        dicc['adress'] = dir_maquina
-        dicc['expires'] = t_exp
-        contenido = [nombre, dicc]
+        #leo el fichero que tenia guardado
+        try:
+            fichero = open('registered.json', 'w')
+            json.dump(self.dicc_json, fichero)
+            fichero.close()
 
-        #guardo informacion del cliente
-        fichero = open('registered.json', 'a')
-        #guardo el fichero
-        json.dump(contenido, fichero)
-        fichero.close()
+        except FileNotFoundError:
+            fichero = open('registered.json', 'w')
+            json.dump(self.dicc_json, fichero)
+            fichero.close()
+
         """---------------------------------"""
         #imprimo informacion del cliente desde el fichero .json
         fichero = open('registered.json', 'r')
         #copio el contenido del fichero json
-        contenido = fichero.readlines()
+        contenido = json.load(fichero)
         #imrpimo del fichero .json el ultimo cliente
-        print(contenido[0][-75:])
-
+        esta = usuario in contenido.keys()
+        if esta:
+            print("\nRECIBIDO REGISTER DE: ")
+            print(usuario + " ," + str(contenido[usuario]))
 
     def get_time_expiration(self, t_expiracion):
         """
@@ -60,7 +66,8 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
         hora_expiracion = time.time() + 3600
         #le sumo el t_expiracion a la hora
         hora_expiracion += t_expiracion
-        hora_expiracion = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(hora_expiracion))
+        hora_expiracion = time.strftime('%Y-%m-%d %H:%M:%S',
+                                        time.gmtime(hora_expiracion))
         return hora_expiracion
 
     def get_nombre(self, mensaje):
@@ -70,6 +77,7 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
         nombre = mensaje.split(" ")[1]
         nombre = nombre.split(":")[1]
         return nombre
+
     def get_expires(self, mensaje):
         """
         Extraigo el tiempo de expiracion del mensaje
@@ -79,49 +87,44 @@ class SIPRegisterHandler(socketserver.DatagramRequestHandler):
         return(int(time))
 
     def handle(self):
-        # Escribe dirección y puerto del cliente (de tupla client_address)
-        dir_cliente = self.client_address[0]
-        port_cliente = self.client_address[1]
-        local_host = str(dir_cliente) + " " + str(port_cliente)
-        line = self.rfile.read()
-        mensaje_recibido = line.decode('utf-8')
-        tipo_mensaje = mensaje_recibido.split(' ')[0]
-
-        """-----------
-        -----REGISTER
-        ------------"""
-        if tipo_mensaje == "REGISTER":
-            nombre = self.get_nombre(mensaje_recibido)
-            t_expires = self.get_expires(mensaje_recibido)
-            hora_expiracion = self.get_time_expiration(t_expires)
-
-            #comprobamos si existe fichero
-            self.json2registered()
-
-            #imprimimos fichero con register2json
-            self.registered2json(nombre, local_host, hora_expiracion)
-            #compruebo si debo borrar o no
-            if t_expires == 0:
-                try:
-                    del self.dicc_clientes[nombre];
-                    print("usuario eliminado de mis diccionario de clientes")
-
-                except:
-                    print("no tengo guardado el usuario, no hago nada")
-            else:
-                #guardo al usuario
-                self.dicc_clientes[nombre] = dir_cliente
-
-            #respondo al cliente
-            self.wfile.write(b"SIP/2.0 200 OK\r\n\r\n")
 
         while 1:
-            # Leyendo línea a línea lo que nos envía el cliente
+
+            # Escribe dirección y puerto del cliente (de tupla client_address)
+            dir_cliente = self.client_address[0]
+            port_cliente = self.client_address[1]
+            local_host = str(dir_cliente) + " " + str(port_cliente)
             line = self.rfile.read()
             mensaje_recibido = line.decode('utf-8')
-            print("El cliente nos manda " + mensaje_recibido)
+            tipo_mensaje = mensaje_recibido.split(' ')[0]
 
-            # Si no hay más líneas salimos del bucle infinito
+            """-----------
+            -----REGISTER
+            ------------"""
+            if tipo_mensaje == "REGISTER":
+                nombre = self.get_nombre(mensaje_recibido)
+                t_expires = self.get_expires(mensaje_recibido)
+                hora_expiracion = self.get_time_expiration(t_expires)
+
+                #comprobamos si existe fichero
+                self.json2registered()
+                #compruebo si debo borrar o no
+                if t_expires == 0:
+                    if nombre in self.dicc_json:
+                        #elimino el usuario del diccionario
+                        del self.dicc_json[nombre]
+                        self.registered2json(nombre)
+                        print("\n" + nombre + " SE HA DESCONECTADO")
+                else:
+                    #guardo al usuario
+                    dir_maquina = dir_cliente + " " + str(port_cliente)
+                    dicc = {}
+                    dicc['adress'] = dir_maquina
+                    dicc['expires'] = hora_expiracion
+                    self.dicc_json[nombre] = dicc
+                    self.registered2json(nombre)
+                    #respondo al cliente
+                    self.wfile.write(b"SIP/2.0 200 OK\r\n\r\n")
             if not line:
                 break
 
